@@ -112,7 +112,8 @@ def save_settings(new_settings):
         default_settings = {
             "global": {
                 "threshold": "0.5",
-                "delay": "1.0"
+                "delay": "1.0",
+                "webhook_threshold": "0.35"
             },
             "microphone": {
                 "device_index": "0",
@@ -174,7 +175,8 @@ def load_settings():
     default_settings = {
         "global": {
             "threshold": "0.5",
-            "delay": "1.0"
+            "delay": "1.0",
+            "webhook_threshold": "0.35"
         },
         "microphone": {
             "device_index": "0",
@@ -250,7 +252,7 @@ def verify_settings_saved(new_settings, saved_settings):
     try:
         # Vérifier les paramètres globaux
         if 'global' in new_settings:
-            for field in ['threshold', 'delay', 'chunk_duration', 'buffer_duration']:
+            for field in ['threshold', 'delay', 'webhook_threshold', 'chunk_duration', 'buffer_duration']:
                 if new_settings['global'].get(field) != saved_settings['global'].get(field):
                     print(f"Différence détectée pour global.{field}:")
                     print(f"  Attendu: {new_settings['global'].get(field)}")
@@ -296,7 +298,7 @@ def start_detection_route():
             
         # Vérifier la présence des sections requises et initialiser avec des valeurs par défaut si nécessaire
         if 'global' not in detection_settings or detection_settings['global'] is None:
-            detection_settings['global'] = {'threshold': '0.2', 'delay': '1.0'}
+            detection_settings['global'] = {'threshold': '0.2', 'delay': '1.0', 'webhook_threshold': '0.35'}
             
         if 'microphone' not in detection_settings or detection_settings['microphone'] is None:
             detection_settings['microphone'] = {
@@ -334,6 +336,7 @@ def start_detection_route():
                 'socketio': socketio,
                 'webhook_url': microphone_settings.get('webhook_url') if microphone_enabled else None,
                 'delay': float(global_settings.get('delay', '1.0')),
+                'webhook_threshold': float(global_settings.get('webhook_threshold', '0.35')),
                 'audio_source': microphone_settings.get('audio_source') if microphone_enabled else None,
                 'rtsp_url': None
             }

@@ -163,6 +163,7 @@ def start_detection(
     socketio: SocketIO,
     webhook_url: str,
     delay: float,
+    webhook_threshold: float,
     audio_source: str,
     rtsp_url: str = None,
 ):
@@ -200,6 +201,7 @@ def start_detection(
             socketio,
             webhook_url,
             delay,
+            webhook_threshold,
             audio_source,
             rtsp_url
         ))
@@ -213,7 +215,7 @@ def start_detection(
         detection_running = False
         return False
 
-def run_detection(model, max_results, score_threshold, overlapping_factor, socketio, webhook_url, delay, audio_source, rtsp_url):
+def run_detection(model, max_results, score_threshold, overlapping_factor, socketio, webhook_url, delay, webhook_threshold, audio_source, rtsp_url):
     """Fonction qui exécute la détection dans un thread séparé"""
     try:
         # Initialiser le détecteur audio
@@ -222,6 +224,8 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
             max_results=max_results,
             score_threshold=score_threshold
         )
+        label_webhook_cooldowns = {}
+        clap_labels = {"Hands", "Clapping", "Cap gun", "Finger snapping"}
         
         def send_webhook_async(source_name, webhook_url, detection_data):
             try:
@@ -238,6 +242,26 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
             except Exception as e:
                 logging.error(
                     f"Erreur lors de l'envoi du webhook pour {source_name}: {str(e)}"
+                )
+
+        def send_label_webhook_async(source_name, webhook_url, labels):
+            try:
+                top_label = labels[0]
+                payload = {
+                    "event": "sound_detected",
+                    "source_id": source_name,
+                    "label": top_label["label"],
+                    "score": top_label["score"],
+                    "labels": labels,
+                    "timestamp": time.time()
+                }
+                response = requests.post(webhook_url, json=payload, timeout=2)
+                logging.info(
+                    f"Webhook label envoyé pour {source_name} ({top_label['label']}) - status={response.status_code}"
+                )
+            except Exception as e:
+                logging.error(
+                    f"Erreur lors de l'envoi du webhook label pour {source_name}: {str(e)}"
                 )
 
         def create_detection_callback(source_name, webhook_url=None):
@@ -264,11 +288,32 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
                     logging.error(f"Erreur lors de l'envoi de l'événement clap pour {source_name}: {str(e)}")
             return handle_detection
         
-        def create_labels_callback(source_name):
+        def create_labels_callback(source_name, webhook_url=None):
             def handle_labels(labels):
                 logging.debug(f"Labels détectés sur {source_name}: {labels}")
                 if socketio:
                     socketio.emit("labels", {"source": source_name, "detected": labels})
+                if not webhook_url or not labels:
+                    return
+
+                top_label = labels[0]
+                if top_label["label"] in clap_labels:
+                    return
+                if top_label["score"] < webhook_threshold:
+                    return
+
+                cooldown_key = f"{source_name}:{top_label['label']}"
+                now = time.time()
+                if now - label_webhook_cooldowns.get(cooldown_key, 0) < delay:
+                    return
+                label_webhook_cooldowns[cooldown_key] = now
+
+                webhook_thread = threading.Thread(
+                    target=send_label_webhook_async,
+                    args=(source_name, webhook_url, labels),
+                    daemon=True
+                )
+                webhook_thread.start()
             return handle_labels
         
         # Vérifier si une source audio est configurée
@@ -298,7 +343,7 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
             detector.add_source(
                 source_id=source_id,
                 detection_callback=create_detection_callback(source_id, webhook_url_to_use),
-                labels_callback=create_labels_callback(source_id)
+                labels_callback=create_labels_callback(source_id, webhook_url_to_use)
             )
             
             # Démarrer la détection
@@ -329,7 +374,7 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
             detector.add_source(
                 source_id=source_id,
                 detection_callback=create_detection_callback(source_id, webhook_url_to_use),
-                labels_callback=create_labels_callback(source_id)
+                labels_callback=create_labels_callback(source_id, webhook_url_to_use)
             )
             
             # Démarrer la détection
@@ -373,7 +418,7 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
             detector.add_source(
                 source_id=source_id,
                 detection_callback=create_detection_callback(source_id, webhook_url_to_use),
-                labels_callback=create_labels_callback(source_id)
+                labels_callback=create_labels_callback(source_id, webhook_url_to_use)
             )
             
             # Démarrer la détection
@@ -441,6 +486,7 @@ if __name__ == "__main__":
             socketio=socketio,
             webhook_url="http://example.com/webhook",
             delay=2.0,
+            webhook_threshold=0.35,
             audio_source=audio_source,
             rtsp_url=rtsp_url,
         )
