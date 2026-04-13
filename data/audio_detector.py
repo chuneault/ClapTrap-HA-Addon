@@ -30,6 +30,19 @@ class AudioDetector:
     self.max_results = 5
     self.score_threshold = 0.3
     self.label_display_threshold = 0.5
+    self.min_block_amplitude = 0.09
+    self.min_block_std = 0.025
+    self.result_log_threshold = 0.55
+    self.noise_labels = {
+        "White noise",
+        "Noise",
+        "Static",
+        "Hum",
+        "Mains hum",
+        "Buzz",
+        "Pulse"
+    }
+    self.clap_labels = {"Hands", "Clapping", "Cap gun", "Finger snapping"}
 
   def initialize(self, max_results=5, score_threshold=0.3):
     """Initialise le classificateur audio"""
@@ -101,27 +114,49 @@ class AudioDetector:
       classification = result.classifications[0]
       source_id = self.current_source_id
 
-      # Log pour déboguer les résultats bruts
-      logging.debug(f"Résultats bruts pour source {source_id}:")
       top_categories = sorted(
           classification.categories,
           key=lambda x: x.score,
           reverse=True
       )[:3]
-      for category in top_categories:
-        logging.debug(f"  - {category.category_name}: {category.score}")
 
       # Calculer le score pour la détection de clap
       score_sum = sum(
           category.score
           for category in classification.categories
-          if category.category_name in ["Hands", "Clapping", "Cap gun"]
+          if category.category_name in self.clap_labels - {"Finger snapping"}
       )
       score_sum -= sum(
           category.score
           for category in classification.categories
           if category.category_name == "Finger snapping"
       )
+
+      should_log_results = False
+      if top_categories:
+        top_label = top_categories[0].category_name
+        top_score = top_categories[0].score
+        has_clap_candidate = any(
+            category.category_name in self.clap_labels and category.score > 0.1
+            for category in top_categories
+        )
+        is_noise_only = all(
+            category.category_name in self.noise_labels
+            for category in top_categories
+        )
+        should_log_results = (
+            has_clap_candidate
+            or score_sum > 0.1
+            or (
+                top_score > self.result_log_threshold
+                and not (is_noise_only and top_label in self.noise_labels)
+            )
+        )
+
+      if should_log_results:
+        logging.debug(f"Résultats bruts pour source {source_id}:")
+        for category in top_categories:
+          logging.debug(f"  - {category.category_name}: {category.score}")
 
       # Log du score calculé
       if score_sum > 0.1:  # Abaisser le seuil pour le debug
@@ -135,8 +170,8 @@ class AudioDetector:
           if label.score > self.label_display_threshold
       ]
 
-      # Log pour déboguer les labels
-      logging.debug(f"Labels détectés pour source {source_id}: {labels_data}")
+      if labels_data or score_sum > 0.1:
+        logging.debug(f"Labels détectés pour source {source_id}: {labels_data}")
 
       # Envoyer les labels si un callback est défini
       if self.sources[source_id]['labels_callback'] and labels_data:
@@ -203,7 +238,8 @@ class AudioDetector:
         block_size = 1600
         buffer_array = np.array(list(self.sources[source_id]['buffer']))
 
-        blocks_processed = 0  # Compteur pour le debug
+        blocks_processed = 0
+        blocks_classified = 0
         while len(buffer_array) >= block_size:
           block = buffer_array[:block_size]
           buffer_array = buffer_array[block_size:]
@@ -211,9 +247,13 @@ class AudioDetector:
 
           # Vérifier les statistiques du bloc avant classification
           block_max = np.max(np.abs(block))
-          if block_max > 0.1:  # Seulement log les blocs avec du son significatif
+          block_std = np.std(block)
+          if block_max > self.min_block_amplitude:
             logging.debug(
                 f"Classification d'un bloc audio (source {source_id}) - amplitude max: {block_max:.4f}")
+
+          if block_max < self.min_block_amplitude and block_std < self.min_block_std:
+            continue
 
           audio_data_container = containers.AudioData.create_from_array(
               block,
@@ -239,11 +279,13 @@ class AudioDetector:
           try:
             self.classifier.classify_async(
                 audio_data_container, next_timestamp)
+            blocks_classified += 1
           except Exception as e:
             logging.error(f"Erreur lors de la classification: {str(e)}")
 
         if blocks_processed > 0:
-          logging.debug(f"Blocs traités pour {source_id}: {blocks_processed}")
+          logging.debug(
+              f"Blocs traités pour {source_id}: {blocks_processed}, classifiés: {blocks_classified}")
 
         # Mettre à jour le buffer avec les données restantes
         self.sources[source_id]['buffer'].clear()

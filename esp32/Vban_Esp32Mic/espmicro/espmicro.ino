@@ -13,6 +13,12 @@ unsigned long lastLog = 0;
 unsigned long lastDataTime = 0;
 unsigned long totalOutBytes = 0;
 
+// Mode test: privilégier un signal fidèle pour YAMNet plutôt qu'un son "amélioré"
+constexpr int32_t NOISE_GATE_THRESHOLD = 120;
+constexpr int32_t SOFTWARE_GAIN_NUM = 1;
+constexpr int32_t SOFTWARE_GAIN_DEN = 1;
+constexpr int32_t LIMITER_MAX = 24000;
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -79,19 +85,19 @@ void loop() {
 
       int32_t left = inBuffer[i];
 
-      // Conversion 32 → 16
+      // Conversion 32 -> 16
       int32_t s16 = left >> 14;
 
-      // Noise gate + boost intelligent
-      if (abs(s16) < 260) {
+      // Noise gate leger pour couper le souffle sans ecraser les transitoires
+      if (abs(s16) < NOISE_GATE_THRESHOLD) {
         s16 = 0;
       } else {
-        s16 = (s16 * 5) / 4; // x1.25
+        s16 = (s16 * SOFTWARE_GAIN_NUM) / SOFTWARE_GAIN_DEN;
       }
 
-      // Limiteur
-      if (s16 > 14000) s16 = 14000;
-      if (s16 < -14000) s16 = -14000;
+      // Limiteur plus haut pour eviter d'aplatir les claps
+      if (s16 > LIMITER_MAX) s16 = LIMITER_MAX;
+      if (s16 < -LIMITER_MAX) s16 = -LIMITER_MAX;
 
       outBuffer[outCount++] = (int16_t)s16;
 
