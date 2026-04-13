@@ -19,9 +19,10 @@ class VBANDetector:
         self.audio_callback = None
         self.source_callback = None
         self.target_sample_rate = 16000  # Taux d'échantillonnage cible
+        self.callback_chunk_size = 1600  # 100 ms pour reduire la latence
         
-        # Buffer circulaire avec une capacité de 1 seconde au taux d'échantillonnage cible
-        self.buffer = collections.deque(maxlen=self.target_sample_rate)
+        # Buffer circulaire avec une capacité de 2 secondes au taux d'échantillonnage cible
+        self.buffer = collections.deque(maxlen=self.target_sample_rate * 2)
         
         self.last_timestamp = 0
         self.stream = None
@@ -119,10 +120,12 @@ class VBANDetector:
                         with self._lock:
                             self.buffer.extend(audio_data)
                             
-                            # Appeler le callback audio si nous avons assez d'échantillons
-                            if self.audio_callback and len(self.buffer) >= self.target_sample_rate:
-                                audio_chunk = np.array(list(self.buffer)[:self.target_sample_rate])
-                                self.buffer.clear()
+                            # Appeler le callback audio par petits blocs pour limiter la latence
+                            while self.audio_callback and len(self.buffer) >= self.callback_chunk_size:
+                                audio_chunk = np.array(
+                                    [self.buffer.popleft() for _ in range(self.callback_chunk_size)],
+                                    dtype=np.float32
+                                )
                                 current_time = time.time()
                                 self.audio_callback(audio_chunk, current_time)
                         

@@ -24,7 +24,6 @@ class AudioDetector:
     # Dict pour stocker le dernier temps de détection par source
     self.last_detection_time = {}
     self.last_timestamp_ms = {}  # Dict pour stocker le dernier timestamp par source
-    self.sample_counts = {}  # Dict pour stocker le nombre d'échantillons traités par source
     self.start_time_ms = None
     self.current_source_id = None  # Pour suivre la source actuelle dans le callback
     self.max_results = 5
@@ -101,7 +100,6 @@ class AudioDetector:
       }
       self.last_detection_time[source_id] = 0
       self.last_timestamp_ms[source_id] = 0
-      self.sample_counts[source_id] = 0
       logging.info(
           f"Source audio ajoutée: {source_id} (ID interne: {numeric_id})")
 
@@ -114,7 +112,6 @@ class AudioDetector:
         del self.sources[source_id]
         del self.last_detection_time[source_id]
         del self.last_timestamp_ms[source_id]
-        del self.sample_counts[source_id]
         logging.info(
             f"Source audio supprimée: {source_id} (ID interne: {numeric_id})")
 
@@ -265,10 +262,10 @@ class AudioDetector:
 
           # Le timestamp doit rester cohérent avec les échantillons réellement
           # envoyés au classificateur en mode stream.
-          current_sample_count = self.sample_counts.get(source_id, 0)
-          next_timestamp = self.start_time_ms + \
-              int((current_sample_count / self.sample_rate) * 1000)
-          self.sample_counts[source_id] = current_sample_count + block_size
+          block_duration_ms = int((block_size / self.sample_rate) * 1000)
+          next_timestamp = self.last_timestamp_ms.get(
+              source_id, self.start_time_ms
+          ) + block_duration_ms
           self.last_timestamp_ms[source_id] = next_timestamp
 
           # Vérifier les statistiques du bloc avant classification
@@ -319,10 +316,9 @@ class AudioDetector:
       )
 
     # Réinitialiser les timestamps et les compteurs d'échantillons
-    self.start_time_ms = int(time.time() * 1000)
+    self.start_time_ms = int(time.monotonic() * 1000)
     for source_id in self.sources:
       self.last_timestamp_ms[source_id] = self.start_time_ms
-      self.sample_counts[source_id] = 0
 
     # Démarrer le task runner de MediaPipe
     if self.classifier:
