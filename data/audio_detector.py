@@ -34,6 +34,11 @@ class AudioDetector:
     self.finger_snapping_penalty = 0.35
     self.direct_clap_label_threshold = 0.45
     self.clap_labels = {"Hands", "Clapping", "Cap gun", "Finger snapping"}
+    self.allowed_non_clap_labels = {
+        "Speech",
+        "Whistling",
+        "Computer keyboard"
+    }
 
   def initialize(self, max_results=5, score_threshold=0.3):
     """Initialise le classificateur audio"""
@@ -139,10 +144,15 @@ class AudioDetector:
             category.category_name in self.clap_labels and category.score > 0.1
             for category in top_categories
         )
+        has_allowed_non_clap = any(
+            category.category_name in self.allowed_non_clap_labels and category.score > 0.35
+            for category in top_categories
+        )
         should_log_results = (
             has_clap_candidate
             or score_sum > 0.1
             or direct_clap_score > 0.1
+            or has_allowed_non_clap
         )
 
       if should_log_results:
@@ -159,8 +169,14 @@ class AudioDetector:
           {"label": label.category_name, "score": float(label.score)}
           for label in top_categories
           if (
-              label.score > self.label_display_threshold
-              and label.category_name in self.clap_labels
+              (
+                  label.score > self.label_display_threshold
+                  and label.category_name in self.clap_labels
+              )
+              or (
+                  label.category_name in self.allowed_non_clap_labels
+                  and label.score > 0.35
+              )
           )
       ]
 

@@ -17,7 +17,7 @@ unsigned long totalOutBytes = 0;
 constexpr int32_t NOISE_GATE_THRESHOLD = 120;
 constexpr int32_t SOFTWARE_GAIN_NUM = 1;
 constexpr int32_t SOFTWARE_GAIN_DEN = 1;
-constexpr int32_t LIMITER_MAX = 24000;
+constexpr int32_t LIMITER_MAX = 28000;
 
 void setup() {
   Serial.begin(115200);
@@ -86,7 +86,7 @@ void loop() {
       int32_t left = inBuffer[i];
 
       // Conversion 32 -> 16
-      int32_t s16 = left >> 14;
+      int32_t s16 = left >> 16;
 
       // Noise gate leger pour couper le souffle sans ecraser les transitoires
       if (abs(s16) < NOISE_GATE_THRESHOLD) {
