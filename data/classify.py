@@ -226,6 +226,21 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
         )
         label_webhook_cooldowns = {}
         clap_labels = {"Hands", "Clapping", "Cap gun", "Finger snapping"}
+        allowed_sound_webhook_labels = {
+            "Speech",
+            "Child speech, kid speaking",
+            "Conversation",
+            "Narration, monologue",
+            "Whistling",
+            "Computer keyboard",
+            "Typing",
+            "Typing on typewriter",
+            "Clicking",
+            "Knock",
+            "Door",
+            "Tap",
+            "Burping, eructation"
+        }
         
         def send_webhook_async(source_name, webhook_url, detection_data):
             try:
@@ -298,6 +313,8 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
 
                 top_label = labels[0]
                 if top_label["label"] in clap_labels:
+                    return
+                if top_label["label"] not in allowed_sound_webhook_labels:
                     return
                 if top_label["score"] < webhook_threshold:
                     return
