@@ -27,10 +27,15 @@ class AudioDetector:
     self.sample_counts = {}  # Dict pour stocker le nombre d'échantillons traités par source
     self.start_time_ms = None
     self.current_source_id = None  # Pour suivre la source actuelle dans le callback
+    self.max_results = 5
+    self.score_threshold = 0.3
+    self.label_display_threshold = 0.5
 
   def initialize(self, max_results=5, score_threshold=0.3):
     """Initialise le classificateur audio"""
     try:
+      self.max_results = max_results
+      self.score_threshold = score_threshold
       base_options = python.BaseOptions(model_asset_path=self.model_path)
 
       # Créer un seul classificateur en mode stream
@@ -98,9 +103,13 @@ class AudioDetector:
 
       # Log pour déboguer les résultats bruts
       logging.debug(f"Résultats bruts pour source {source_id}:")
-      for category in classification.categories:
-        if category.score > 0.1:  # Abaisser le seuil pour voir plus de résultats
-          logging.debug(f"  - {category.category_name}: {category.score}")
+      top_categories = sorted(
+          classification.categories,
+          key=lambda x: x.score,
+          reverse=True
+      )[:3]
+      for category in top_categories:
+        logging.debug(f"  - {category.category_name}: {category.score}")
 
       # Calculer le score pour la détection de clap
       score_sum = sum(
@@ -120,15 +129,10 @@ class AudioDetector:
             f"Score de clap calculé pour source {source_id}: {score_sum}")
 
       # Préparer les labels pour le callback
-      top3_labels = sorted(
-          classification.categories,
-          key=lambda x: x.score,
-          reverse=True
-      )[:3]
       labels_data = [
           {"label": label.category_name, "score": float(label.score)}
-          for label in top3_labels
-          if label.score > 0.5
+          for label in top_categories
+          if label.score > self.label_display_threshold
       ]
 
       # Log pour déboguer les labels
@@ -144,7 +148,7 @@ class AudioDetector:
 
       # Vérifier si on a détecté un clap
       event_time = timestamp / 1000.0
-      if score_sum > 0.3 and (timestamp - self.last_detection_time.get(source_id, 0)) > 1000:
+      if score_sum > self.score_threshold and (timestamp - self.last_detection_time.get(source_id, 0)) > 1000:
         if self.sources[source_id]['detection_callback']:
           try:
             self.sources[source_id]['detection_callback']({
@@ -254,7 +258,10 @@ class AudioDetector:
   def start(self):
     """Démarre la détection"""
     if not self.classifier:
-      self.initialize()
+      self.initialize(
+          max_results=self.max_results,
+          score_threshold=self.score_threshold
+      )
 
     # Réinitialiser les timestamps et les compteurs d'échantillons
     self.start_time_ms = int(time.time() * 1000)
