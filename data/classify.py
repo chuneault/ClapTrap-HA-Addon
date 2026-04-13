@@ -223,6 +223,23 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
             score_threshold=score_threshold
         )
         
+        def send_webhook_async(source_name, webhook_url, detection_data):
+            try:
+                payload = {
+                    "event": "clap_detected",
+                    "source_id": source_name,
+                    "timestamp": detection_data["timestamp"],
+                    "score": detection_data["score"]
+                }
+                response = requests.post(webhook_url, json=payload, timeout=2)
+                logging.info(
+                    f"Webhook envoyé pour {source_name} - status={response.status_code}"
+                )
+            except Exception as e:
+                logging.error(
+                    f"Erreur lors de l'envoi du webhook pour {source_name}: {str(e)}"
+                )
+
         def create_detection_callback(source_name, webhook_url=None):
             def handle_detection(detection_data):
                 try:
@@ -237,7 +254,12 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
                     # Utiliser le webhook_url passé au callback
                     if webhook_url:
                         logging.info(f"Envoi webhook pour {source_name} vers {webhook_url}")
-                        requests.post(webhook_url)
+                        webhook_thread = threading.Thread(
+                            target=send_webhook_async,
+                            args=(source_name, webhook_url, detection_data),
+                            daemon=True
+                        )
+                        webhook_thread.start()
                 except Exception as e:
                     logging.error(f"Erreur lors de l'envoi de l'événement clap pour {source_name}: {str(e)}")
             return handle_detection
