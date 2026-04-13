@@ -19,7 +19,7 @@ class VBANDetector:
         self.audio_callback = None
         self.source_callback = None
         self.target_sample_rate = 16000  # Taux d'échantillonnage cible
-        self.callback_chunk_size = 1600  # 100 ms pour reduire la latence
+        self.callback_chunk_size = 8000  # 500 ms pour redonner du contexte a YAMNet
         
         # Buffer circulaire avec une capacité de 2 secondes au taux d'échantillonnage cible
         self.buffer = collections.deque(maxlen=self.target_sample_rate * 2)
