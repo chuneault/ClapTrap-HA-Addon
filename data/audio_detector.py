@@ -30,8 +30,6 @@ class AudioDetector:
     self.max_results = 5
     self.score_threshold = 0.3
     self.label_display_threshold = 0.5
-    self.min_block_amplitude = 0.07
-    self.min_block_std = 0.018
     self.result_log_threshold = 0.55
     self.noise_labels = {
         "White noise",
@@ -260,14 +258,13 @@ class AudioDetector:
         buffer_array = np.array(list(self.sources[source_id]['buffer']))
 
         blocks_processed = 0
-        blocks_classified = 0
         while len(buffer_array) >= block_size:
           block = buffer_array[:block_size]
           buffer_array = buffer_array[block_size:]
           blocks_processed += 1
 
-          # Le timestamp doit avancer pour tous les blocs, même ceux ignorés,
-          # sinon le flux temporel envoyé a YAMNet finit par deriver.
+          # Le timestamp doit rester cohérent avec les échantillons réellement
+          # envoyés au classificateur en mode stream.
           current_sample_count = self.sample_counts.get(source_id, 0)
           next_timestamp = self.start_time_ms + \
               int((current_sample_count / self.sample_rate) * 1000)
@@ -276,13 +273,9 @@ class AudioDetector:
 
           # Vérifier les statistiques du bloc avant classification
           block_max = np.max(np.abs(block))
-          block_std = np.std(block)
-          if block_max > self.min_block_amplitude:
+          if block_max > 0.1:
             logging.debug(
                 f"Classification d'un bloc audio (source {source_id}) - amplitude max: {block_max:.4f}")
-
-          if block_max < self.min_block_amplitude and block_std < self.min_block_std:
-            continue
 
           audio_data_container = containers.AudioData.create_from_array(
               block,
@@ -301,13 +294,11 @@ class AudioDetector:
           try:
             self.classifier.classify_async(
                 audio_data_container, next_timestamp)
-            blocks_classified += 1
           except Exception as e:
             logging.error(f"Erreur lors de la classification: {str(e)}")
 
         if blocks_processed > 0:
-          logging.debug(
-              f"Blocs traités pour {source_id}: {blocks_processed}, classifiés: {blocks_classified}")
+          logging.debug(f"Blocs traités pour {source_id}: {blocks_processed}")
 
         # Mettre à jour le buffer avec les données restantes
         self.sources[source_id]['buffer'].clear()
