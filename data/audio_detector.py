@@ -43,6 +43,21 @@ class AudioDetector:
         "Pulse"
     }
     self.clap_labels = {"Hands", "Clapping", "Cap gun", "Finger snapping"}
+    self.interesting_labels = {
+        "Speech",
+        "Child speech, kid speaking",
+        "Conversation",
+        "Narration, monologue",
+        "Whistling",
+        "Computer keyboard",
+        "Typing",
+        "Typing on typewriter",
+        "Clicking",
+        "Knock",
+        "Door",
+        "Tap",
+        "Burping, eructation"
+    }
 
   def initialize(self, max_results=5, score_threshold=0.3):
     """Initialise le classificateur audio"""
@@ -167,7 +182,13 @@ class AudioDetector:
       labels_data = [
           {"label": label.category_name, "score": float(label.score)}
           for label in top_categories
-          if label.score > self.label_display_threshold
+          if (
+              label.score > self.label_display_threshold
+              or (
+                  label.category_name in self.interesting_labels
+                  and label.score > 0.35
+              )
+          )
       ]
 
       if labels_data or score_sum > 0.1:
