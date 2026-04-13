@@ -30,6 +30,8 @@ class AudioDetector:
     self.score_threshold = 0.3
     self.label_display_threshold = 0.5
     self.result_log_threshold = 0.55
+    self.finger_snapping_penalty = 0.35
+    self.direct_clap_label_threshold = 0.45
     self.noise_labels = {
         "White noise",
         "Noise",
@@ -136,10 +138,20 @@ class AudioDetector:
           for category in classification.categories
           if category.category_name in self.clap_labels - {"Finger snapping"}
       )
-      score_sum -= sum(
+      finger_snapping_score = sum(
           category.score
           for category in classification.categories
           if category.category_name == "Finger snapping"
+      )
+      score_sum -= finger_snapping_score * self.finger_snapping_penalty
+
+      direct_clap_score = max(
+          (
+              category.score
+              for category in classification.categories
+              if category.category_name in {"Clapping", "Hands"}
+          ),
+          default=0.0
       )
 
       should_log_results = False
@@ -169,9 +181,9 @@ class AudioDetector:
           logging.debug(f"  - {category.category_name}: {category.score}")
 
       # Log du score calculé
-      if score_sum > 0.1:  # Abaisser le seuil pour le debug
+      if score_sum > 0.1 or direct_clap_score > 0.1:
         logging.debug(
-            f"Score de clap calculé pour source {source_id}: {score_sum}")
+            f"Score de clap calculé pour source {source_id}: {score_sum} (direct={direct_clap_score}, snap={finger_snapping_score})")
 
       # Préparer les labels pour le callback
       labels_data = [
@@ -186,7 +198,7 @@ class AudioDetector:
           )
       ]
 
-      if labels_data or score_sum > 0.1:
+      if labels_data or score_sum > 0.1 or direct_clap_score > 0.1:
         logging.debug(f"Labels détectés pour source {source_id}: {labels_data}")
 
       # Envoyer les labels si un callback est défini
@@ -199,12 +211,16 @@ class AudioDetector:
 
       # Vérifier si on a détecté un clap
       event_time = timestamp / 1000.0
-      if score_sum > self.score_threshold and (timestamp - self.last_detection_time.get(source_id, 0)) > 1000:
+      clap_detected = (
+          score_sum > self.score_threshold
+          or direct_clap_score > self.direct_clap_label_threshold
+      )
+      if clap_detected and (timestamp - self.last_detection_time.get(source_id, 0)) > 1000:
         if self.sources[source_id]['detection_callback']:
           try:
             self.sources[source_id]['detection_callback']({
                 'timestamp': event_time,
-                'score': float(score_sum),
+                'score': float(max(score_sum, direct_clap_score)),
                 'source_id': source_id
             })
           except Exception as e:
