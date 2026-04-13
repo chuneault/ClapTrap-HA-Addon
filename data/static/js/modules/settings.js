@@ -17,7 +17,6 @@ function syncWithDOM() {
     // Récupérer les éléments de l'interface
     const threshold = document.getElementById('threshold');
     const delay = document.getElementById('delay');
-    const webhookThreshold = document.getElementById('webhook_threshold');
     const micEnabled = document.getElementById('webhook-mic-enabled');
     const micUrl = document.getElementById('webhook-mic-url');
     const micSource = document.getElementById('micro_source');
@@ -32,10 +31,7 @@ function syncWithDOM() {
         global: {
             ...currentSettings.global,
             threshold: threshold ? threshold.value : currentSettings.global.threshold,
-            delay: delay ? delay.value : currentSettings.global.delay,
-            webhook_threshold: webhookThreshold
-                ? webhookThreshold.value
-                : currentSettings.global.webhook_threshold
+            delay: delay ? delay.value : currentSettings.global.delay
         },
         microphone: {
             ...currentSettings.microphone,

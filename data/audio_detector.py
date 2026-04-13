@@ -25,8 +25,6 @@ class AudioDetector:
     self.last_detection_time = {}
     self.last_timestamp_ms = {}  # Dict pour stocker le dernier timestamp par source
     self.last_stats_log_time = {}
-    self.label_state = {}
-    self.pending_block_features = {}
     self.start_time_ms = None
     self.current_source_id = None  # Pour suivre la source actuelle dans le callback
     self.max_results = 5
@@ -35,31 +33,7 @@ class AudioDetector:
     self.result_log_threshold = 0.55
     self.finger_snapping_penalty = 0.35
     self.direct_clap_label_threshold = 0.45
-    self.noise_labels = {
-        "White noise",
-        "Noise",
-        "Static",
-        "Hum",
-        "Mains hum",
-        "Buzz",
-        "Pulse"
-    }
     self.clap_labels = {"Hands", "Clapping", "Cap gun", "Finger snapping"}
-    self.interesting_labels = {
-        "Speech",
-        "Child speech, kid speaking",
-        "Conversation",
-        "Narration, monologue",
-        "Whistling",
-        "Computer keyboard",
-        "Typing",
-        "Typing on typewriter",
-        "Clicking",
-        "Knock",
-        "Door",
-        "Tap",
-        "Burping, eructation"
-    }
 
   def initialize(self, max_results=5, score_threshold=0.3):
     """Initialise le classificateur audio"""
@@ -106,12 +80,6 @@ class AudioDetector:
       self.last_detection_time[source_id] = 0
       self.last_timestamp_ms[source_id] = 0
       self.last_stats_log_time[source_id] = 0
-      self.label_state[source_id] = {
-          "last_label": None,
-          "repeat_count": 0,
-          "last_emit_time": 0
-      }
-      self.pending_block_features[source_id] = {}
       logging.info(
           f"Source audio ajoutée: {source_id} (ID interne: {numeric_id})")
 
@@ -125,8 +93,6 @@ class AudioDetector:
         del self.last_detection_time[source_id]
         del self.last_timestamp_ms[source_id]
         del self.last_stats_log_time[source_id]
-        del self.label_state[source_id]
-        del self.pending_block_features[source_id]
         logging.info(
             f"Source audio supprimée: {source_id} (ID interne: {numeric_id})")
 
@@ -144,11 +110,6 @@ class AudioDetector:
           key=lambda x: x.score,
           reverse=True
       )[:3]
-      block_features = self.pending_block_features.get(source_id, {}).pop(
-          timestamp, {}
-      )
-      block_max = float(block_features.get("block_max", 0.0))
-      block_std = float(block_features.get("block_std", 0.0))
 
       # Calculer le score pour la détection de clap
       score_sum = sum(
@@ -171,36 +132,17 @@ class AudioDetector:
           ),
           default=0.0
       )
-      impulse_score = 0.0
-      if block_max > 0.6 and block_std > 0.12:
-        impulse_score = 0.85
-      elif block_max > 0.45 and block_std > 0.08:
-        impulse_score = 0.65
-      elif block_max > 0.3 and block_std > 0.05:
-        impulse_score = 0.45
 
       should_log_results = False
       if top_categories:
-        top_label = top_categories[0].category_name
-        top_score = top_categories[0].score
         has_clap_candidate = any(
             category.category_name in self.clap_labels and category.score > 0.1
-            for category in top_categories
-        )
-        is_noise_only = all(
-            category.category_name in self.noise_labels
             for category in top_categories
         )
         should_log_results = (
             has_clap_candidate
             or score_sum > 0.1
             or direct_clap_score > 0.1
-            or impulse_score > 0.4
-            or (
-                top_label in self.interesting_labels
-                and top_score > 0.35
-                and not (is_noise_only and top_label in self.noise_labels)
-            )
         )
 
       if should_log_results:
@@ -209,52 +151,20 @@ class AudioDetector:
           logging.debug(f"  - {category.category_name}: {category.score}")
 
       # Log du score calculé
-      if score_sum > 0.1 or direct_clap_score > 0.1 or impulse_score > 0.4:
+      if score_sum > 0.1 or direct_clap_score > 0.1:
         logging.debug(
-            f"Score de clap calculé pour source {source_id}: {score_sum} (direct={direct_clap_score}, impulse={impulse_score}, snap={finger_snapping_score}, max={block_max:.4f}, std={block_std:.4f})")
+            f"Score de clap calculé pour source {source_id}: {score_sum} (direct={direct_clap_score}, snap={finger_snapping_score})")
 
-      # Préparer les labels candidats pour l'affichage / webhook
-      candidate_labels = [
+      labels_data = [
           {"label": label.category_name, "score": float(label.score)}
           for label in top_categories
           if (
-              (
-                  label.score > self.label_display_threshold
-                  and label.category_name in self.interesting_labels.union(self.clap_labels)
-              )
-              or (
-                  label.category_name in self.interesting_labels
-                  and label.score > 0.35
-              )
+              label.score > self.label_display_threshold
+              and label.category_name in self.clap_labels
           )
       ]
 
-      labels_data = []
-      if candidate_labels:
-        top_candidate = candidate_labels[0]
-        state = self.label_state[source_id]
-        label_name = top_candidate["label"]
-        now_ms = timestamp
-
-        if label_name == state["last_label"]:
-          state["repeat_count"] += 1
-        else:
-          state["last_label"] = label_name
-          state["repeat_count"] = 1
-
-        is_clap_family = label_name in self.clap_labels
-        should_emit_label = (
-            is_clap_family
-            or top_candidate["score"] >= 0.6
-            or state["repeat_count"] >= 2
-        )
-        cooldown_ok = (now_ms - state["last_emit_time"]) > 500
-
-        if should_emit_label and cooldown_ok:
-          labels_data = candidate_labels
-          state["last_emit_time"] = now_ms
-
-      if labels_data or score_sum > 0.1 or direct_clap_score > 0.1 or impulse_score > 0.4:
+      if labels_data or score_sum > 0.1 or direct_clap_score > 0.1:
         logging.debug(f"Labels détectés pour source {source_id}: {labels_data}")
 
       # Envoyer les labels si un callback est défini
@@ -270,14 +180,13 @@ class AudioDetector:
       clap_detected = (
           score_sum > self.score_threshold
           or direct_clap_score > self.direct_clap_label_threshold
-          or impulse_score > 0.6
       )
       if clap_detected and (timestamp - self.last_detection_time.get(source_id, 0)) > 1000:
         if self.sources[source_id]['detection_callback']:
           try:
             self.sources[source_id]['detection_callback']({
                 'timestamp': event_time,
-                'score': float(max(score_sum, direct_clap_score, impulse_score)),
+                'score': float(max(score_sum, direct_clap_score)),
                 'source_id': source_id
             })
           except Exception as e:
@@ -364,13 +273,6 @@ class AudioDetector:
 
           # Définir la source actuelle pour le callback
           self.current_source_id = source_id
-          self.pending_block_features[source_id][next_timestamp] = {
-              "block_max": float(block_max),
-              "block_std": float(block_std)
-          }
-          if len(self.pending_block_features[source_id]) > 100:
-            oldest_timestamp = min(self.pending_block_features[source_id].keys())
-            del self.pending_block_features[source_id][oldest_timestamp]
 
           # Log avant la classification
           if block_max > 0.1:

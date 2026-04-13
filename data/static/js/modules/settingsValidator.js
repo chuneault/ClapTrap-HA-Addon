@@ -1,11 +1,10 @@
 // Schéma de validation des paramètres
 const settingsSchema = {
     global: {
-        required: ['threshold', 'delay', 'webhook_threshold'],
+        required: ['threshold', 'delay'],
         defaults: {
             threshold: '0.5',
-            delay: '1.0',
-            webhook_threshold: '0.35'
+            delay: '1.0'
         }
     },
     microphone: {
@@ -105,15 +104,11 @@ export function compareWithDOMValues(settings) {
     // Vérifier les valeurs globales
     const threshold = document.getElementById('threshold');
     const delay = document.getElementById('delay');
-    const webhookThreshold = document.getElementById('webhook_threshold');
     if (threshold && settings.global.threshold !== threshold.value) {
         differences.push(`Seuil: ${settings.global.threshold} ≠ ${threshold.value}`);
     }
     if (delay && settings.global.delay !== delay.value) {
         differences.push(`Délai: ${settings.global.delay} ≠ ${delay.value}`);
-    }
-    if (webhookThreshold && settings.global.webhook_threshold !== webhookThreshold.value) {
-        differences.push(`Seuil webhook: ${settings.global.webhook_threshold} ≠ ${webhookThreshold.value}`);
     }
 
     // Vérifier les paramètres du microphone
@@ -143,7 +138,6 @@ export function validateDOM() {
     const requiredElements = [
         'threshold',
         'delay',
-        'webhook_threshold',
         'webhook-mic-enabled',
         'webhook-mic-url',
         'micro_source'
