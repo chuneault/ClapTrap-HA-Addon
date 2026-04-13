@@ -266,6 +266,14 @@ class AudioDetector:
           buffer_array = buffer_array[block_size:]
           blocks_processed += 1
 
+          # Le timestamp doit avancer pour tous les blocs, même ceux ignorés,
+          # sinon le flux temporel envoyé a YAMNet finit par deriver.
+          current_sample_count = self.sample_counts.get(source_id, 0)
+          next_timestamp = self.start_time_ms + \
+              int((current_sample_count / self.sample_rate) * 1000)
+          self.sample_counts[source_id] = current_sample_count + block_size
+          self.last_timestamp_ms[source_id] = next_timestamp
+
           # Vérifier les statistiques du bloc avant classification
           block_max = np.max(np.abs(block))
           block_std = np.std(block)
@@ -280,13 +288,6 @@ class AudioDetector:
               block,
               self.sample_rate
           )
-
-          # Calculer le timestamp basé sur le nombre d'échantillons traités
-          current_sample_count = self.sample_counts.get(source_id, 0)
-          next_timestamp = self.start_time_ms + \
-              int((current_sample_count / self.sample_rate) * 1000)
-          self.sample_counts[source_id] = current_sample_count + block_size
-          self.last_timestamp_ms[source_id] = next_timestamp
 
           # Définir la source actuelle pour le callback
           self.current_source_id = source_id
