@@ -30,8 +30,8 @@ class AudioDetector:
     self.max_results = 5
     self.score_threshold = 0.3
     self.label_display_threshold = 0.5
-    self.min_block_amplitude = 0.09
-    self.min_block_std = 0.025
+    self.min_block_amplitude = 0.07
+    self.min_block_std = 0.018
     self.result_log_threshold = 0.55
     self.noise_labels = {
         "White noise",
