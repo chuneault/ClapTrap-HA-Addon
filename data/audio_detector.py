@@ -49,6 +49,11 @@ class AudioDetector:
         "Typewriter"
     }
 
+  def _normalize_label(self, label_name):
+    if label_name == "Typewriter":
+      return "Computer keyboard"
+    return label_name
+
   def initialize(self, max_results=5, score_threshold=0.3):
     """Initialise le classificateur audio"""
     try:
@@ -183,7 +188,7 @@ class AudioDetector:
             f"Score de clap calculé pour source {source_id}: {score_sum} (direct={direct_clap_score}, snap={finger_snapping_score})")
 
       labels_data = [
-          {"label": label.category_name, "score": float(label.score)}
+          {"label": self._normalize_label(label.category_name), "score": float(label.score)}
           for label in top_categories
           if (
               (
