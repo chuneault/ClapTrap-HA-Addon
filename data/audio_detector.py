@@ -380,7 +380,7 @@ class AudioDetector:
     if self.classifier:
       try:
         # Créer un conteneur audio vide pour démarrer le stream
-        empty_data = np.zeros(1600, dtype=np.float32)
+        empty_data = np.zeros(self.chunk_size, dtype=np.float32)
         audio_data = containers.AudioData.create_from_array(
             empty_data,
             self.sample_rate
