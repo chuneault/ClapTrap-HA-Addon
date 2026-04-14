@@ -50,6 +50,13 @@ SETTINGS_FILE = os.path.join(BASE_DIR, 'settings.json')
 SETTINGS_BACKUP = os.path.join(BASE_DIR, 'settings.json.backup')
 SETTINGS_TEMP = os.path.join(BASE_DIR, 'settings.json.tmp')
 
+DEFAULT_SOUND_EVENTS = [
+    {"label": "Speech", "enabled": True, "min_score": "0.35"},
+    {"label": "Whistling", "enabled": True, "min_score": "0.22"},
+    {"label": "Computer keyboard", "enabled": True, "min_score": "0.20"},
+    {"label": "Clapping", "enabled": False, "min_score": "0.25"},
+]
+
 # Initialiser le détecteur VBAN
 init_vban()
 
@@ -114,6 +121,7 @@ def save_settings(new_settings):
                 "threshold": "0.5",
                 "delay": "1.0"
             },
+            "sound_events": DEFAULT_SOUND_EVENTS,
             "microphone": {
                 "device_index": "0",
                 "audio_source": "default",
@@ -176,6 +184,7 @@ def load_settings():
             "threshold": "0.5",
             "delay": "1.0"
         },
+        "sound_events": DEFAULT_SOUND_EVENTS,
         "microphone": {
             "device_index": "0",
             "audio_source": "default",

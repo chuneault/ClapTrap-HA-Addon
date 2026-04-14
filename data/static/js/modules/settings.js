@@ -20,6 +20,7 @@ function syncWithDOM() {
     const micEnabled = document.getElementById('webhook-mic-enabled');
     const micUrl = document.getElementById('webhook-mic-url');
     const micSource = document.getElementById('micro_source');
+    const soundEventElements = document.querySelectorAll('.sound-event-item');
 
     const [deviceId, deviceName] = micSource ? micSource.value.split('|') : ['0', 'default'];
 
@@ -33,6 +34,11 @@ function syncWithDOM() {
             threshold: threshold ? threshold.value : currentSettings.global.threshold,
             delay: delay ? delay.value : currentSettings.global.delay
         },
+        sound_events: Array.from(soundEventElements).map(element => ({
+            label: element.dataset.label,
+            enabled: element.querySelector('.sound-event-enabled')?.checked || false,
+            min_score: element.querySelector('.sound-event-threshold')?.value || '0.2'
+        })),
         microphone: {
             ...currentSettings.microphone,
             enabled: micEnabled ? micEnabled.checked : false,

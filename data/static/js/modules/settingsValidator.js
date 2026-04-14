@@ -7,6 +7,16 @@ const settingsSchema = {
             delay: '1.0'
         }
     },
+    sound_events: {
+        type: 'array',
+        itemSchema: {
+            required: ['label', 'enabled', 'min_score'],
+            defaults: {
+                enabled: false,
+                min_score: '0.2'
+            }
+        }
+    },
     microphone: {
         required: ['enabled', 'webhook_url', 'audio_source', 'device_index'],
         defaults: {
@@ -115,6 +125,7 @@ export function compareWithDOMValues(settings) {
     const micEnabled = document.getElementById('webhook-mic-enabled');
     const micUrl = document.getElementById('webhook-mic-url');
     const micSource = document.getElementById('micro_source');
+    const soundEventElements = document.querySelectorAll('.sound-event-item');
     
     if (micEnabled && settings.microphone.enabled !== micEnabled.checked) {
         differences.push(`Microphone activé: ${settings.microphone.enabled} ≠ ${micEnabled.checked}`);
@@ -124,6 +135,22 @@ export function compareWithDOMValues(settings) {
     }
     if (micSource && settings.microphone.audio_source !== micSource.value.split('|')[1]) {
         differences.push(`Source audio: ${settings.microphone.audio_source} ≠ ${micSource.value.split('|')[1]}`);
+    }
+
+    if (soundEventElements.length > 0) {
+        soundEventElements.forEach(element => {
+            const label = element.dataset.label;
+            const enabledInput = element.querySelector('.sound-event-enabled');
+            const scoreInput = element.querySelector('.sound-event-threshold');
+            const currentEvent = (settings.sound_events || []).find(event => event.label === label);
+
+            if (currentEvent && enabledInput && currentEvent.enabled !== enabledInput.checked) {
+                differences.push(`Événement ${label} activé: ${currentEvent.enabled} ≠ ${enabledInput.checked}`);
+            }
+            if (currentEvent && scoreInput && String(currentEvent.min_score) !== scoreInput.value) {
+                differences.push(`Événement ${label} seuil: ${currentEvent.min_score} ≠ ${scoreInput.value}`);
+            }
+        });
     }
 
     return {
@@ -138,6 +165,7 @@ export function validateDOM() {
     const requiredElements = [
         'threshold',
         'delay',
+        'soundEventsList',
         'webhook-mic-enabled',
         'webhook-mic-url',
         'micro_source'

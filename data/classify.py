@@ -119,6 +119,27 @@ def save_audio_to_wav(audio_data, sample_rate, filename):
     except Exception as e:
         logging.error(f"Failed to save audio to {filename}: {e}")
 
+def get_enabled_sound_events(settings):
+    sound_events = settings.get('sound_events', []) if isinstance(settings, dict) else []
+    normalized_events = {}
+
+    for event in sound_events:
+        if not isinstance(event, dict) or not event.get('enabled', False):
+            continue
+
+        label = event.get('label')
+        if not label:
+            continue
+
+        try:
+            min_score = float(event.get('min_score', 0.2))
+        except (TypeError, ValueError):
+            min_score = 0.2
+
+        normalized_events[label] = min_score
+
+    return normalized_events
+
 def read_audio_from_rtsp(rtsp_url, buffer_size):
     """Lit un flux RTSP audio en continu sans buffer fichier"""
     try:
@@ -224,17 +245,14 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
         detector = AudioDetector(
             model,
             sample_rate=16000,
-            buffer_duration=buffer_duration
+            buffer_duration=buffer_duration,
+            sound_events_config=runtime_settings.get('sound_events', [])
         )
         detector.initialize(
             max_results=max_results,
             score_threshold=score_threshold
         )
-        allowed_sound_webhook_labels = {
-            "Speech",
-            "Whistling",
-            "Computer keyboard"
-        }
+        enabled_sound_events = get_enabled_sound_events(runtime_settings)
         label_webhook_cooldowns = {}
         
         def send_webhook_async(source_name, webhook_url, detection_data):
@@ -307,7 +325,8 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
                     return
 
                 top_label = labels[0]
-                if top_label["label"] not in allowed_sound_webhook_labels:
+                min_score = enabled_sound_events.get(top_label["label"])
+                if min_score is None or top_label["score"] < min_score:
                     return
 
                 cooldown_key = f"{source_name}:{top_label['label']}"

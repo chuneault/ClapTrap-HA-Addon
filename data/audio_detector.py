@@ -11,7 +11,7 @@ import logging
 
 
 class AudioDetector:
-  def __init__(self, model_path, sample_rate=16000, buffer_duration=1.0):
+  def __init__(self, model_path, sample_rate=16000, buffer_duration=1.0, sound_events_config=None):
     self.model_path = model_path
     self.sample_rate = sample_rate
     self.buffer_size = int(buffer_duration * sample_rate)
@@ -35,24 +35,50 @@ class AudioDetector:
     self.direct_clap_label_threshold = 0.25
     self.slap_smack_weight = 0.60
     self.min_detection_interval_ms = 350
-    self.non_clap_label_thresholds = {
-        "Speech": 0.35,
-        "Whistling": 0.22,
-        "Computer keyboard": 0.20,
-        "Typewriter": 0.12,
-    }
     self.clap_labels = {"Hands", "Clapping", "Finger snapping"}
-    self.allowed_non_clap_labels = {
-        "Speech",
-        "Whistling",
-        "Computer keyboard",
-        "Typewriter"
-    }
+    self.monitored_sound_events = self._build_monitored_sound_events(
+        sound_events_config)
 
   def _normalize_label(self, label_name):
     if label_name == "Typewriter":
       return "Computer keyboard"
     return label_name
+
+  def _build_monitored_sound_events(self, sound_events_config):
+    default_events = {
+        "Speech": 0.35,
+        "Whistling": 0.22,
+        "Computer keyboard": 0.20,
+        "Clapping": 0.25,
+    }
+
+    if not sound_events_config:
+      return default_events
+
+    monitored_events = {}
+    for event in sound_events_config:
+      if not isinstance(event, dict):
+        continue
+
+      label = self._normalize_label(event.get("label", ""))
+      if not label or not event.get("enabled", False):
+        continue
+
+      try:
+        min_score = float(event.get("min_score", default_events.get(label, 0.2)))
+      except (TypeError, ValueError):
+        min_score = default_events.get(label, 0.2)
+
+      monitored_events[label] = min_score
+
+    return monitored_events
+
+  def _should_emit_label(self, label_name, score):
+    normalized_label = self._normalize_label(label_name)
+    threshold = self.monitored_sound_events.get(normalized_label)
+    if threshold is None:
+      return False
+    return score >= threshold
 
   def initialize(self, max_results=5, score_threshold=0.3):
     """Initialise le classificateur audio"""
@@ -164,10 +190,7 @@ class AudioDetector:
             for category in top_categories
         )
         has_allowed_non_clap = any(
-            category.category_name in self.allowed_non_clap_labels
-            and category.score > self.non_clap_label_thresholds.get(
-                category.category_name, 0.35
-            )
+            self._should_emit_label(category.category_name, category.score)
             for category in top_categories
         )
         should_log_results = (
@@ -187,21 +210,20 @@ class AudioDetector:
         logging.debug(
             f"Score de clap calculé pour source {source_id}: {score_sum} (direct={direct_clap_score}, snap={finger_snapping_score})")
 
+      labels_map = {}
+      for label in top_categories:
+        normalized_label = self._normalize_label(label.category_name)
+
+        if (
+            label.category_name in self.clap_labels
+            and label.score > self.label_display_threshold
+        ) or self._should_emit_label(label.category_name, label.score):
+          previous_score = labels_map.get(normalized_label, 0.0)
+          labels_map[normalized_label] = max(previous_score, float(label.score))
+
       labels_data = [
-          {"label": self._normalize_label(label.category_name), "score": float(label.score)}
-          for label in top_categories
-          if (
-              (
-                  label.score > self.label_display_threshold
-                  and label.category_name in self.clap_labels
-              )
-              or (
-                  label.category_name in self.allowed_non_clap_labels
-                  and label.score > self.non_clap_label_thresholds.get(
-                      label.category_name, 0.35
-                  )
-              )
-          )
+          {"label": label_name, "score": score}
+          for label_name, score in labels_map.items()
       ]
 
       if labels_data or score_sum > 0.1 or direct_clap_score > 0.1:
