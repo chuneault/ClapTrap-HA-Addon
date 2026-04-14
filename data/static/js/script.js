@@ -5,6 +5,7 @@ import { initWebhooks } from './modules/webhooks.js';
 import { setupEventListeners } from './modules/events.js';
 import { updateSettings, saveSettings, initSettings } from './modules/settings.js';
 import { initializeSocketIO } from './modules/socketHandlers.js';
+import { syncDetectionStatus } from './modules/detection.js';
 import { showError } from './modules/utils.js';
 
 window.showClap = function(sourceId) {
@@ -110,7 +111,7 @@ function updateUIState(active) {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 DOM fully loaded');
     
     // Initialiser les paramètres
@@ -126,6 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const socket = initializeSocketIO();
             console.log('✅ Socket.IO initialized');
+            await syncDetectionStatus();
         } else {
             console.error('❌ Échec de l\'initialisation des paramètres');
             showError('Erreur lors de l\'initialisation des paramètres');

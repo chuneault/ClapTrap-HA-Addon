@@ -119,7 +119,8 @@ def save_settings(new_settings):
         default_settings = {
             "global": {
                 "threshold": "0.5",
-                "delay": "1.0"
+                "delay": "1.0",
+                "autostart": False
             },
             "sound_events": DEFAULT_SOUND_EVENTS,
             "microphone": {
@@ -182,7 +183,8 @@ def load_settings():
     default_settings = {
         "global": {
             "threshold": "0.5",
-            "delay": "1.0"
+            "delay": "1.0",
+            "autostart": False
         },
         "sound_events": DEFAULT_SOUND_EVENTS,
         "microphone": {
@@ -370,6 +372,11 @@ def auto_start_detection_from_settings():
             return
 
         detection_settings = load_settings()
+        global_settings = detection_settings.get('global', {})
+        if not global_settings.get('autostart', False):
+            logging.info("Auto-start désactivé dans les paramètres")
+            return
+
         detection_params = build_detection_params(detection_settings)
 
         if not detection_params.get('audio_source'):

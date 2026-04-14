@@ -60,6 +60,15 @@
                             <span class="unit">sec</span>
                         </div>
                     </div>
+                    <div class="setting-item">
+                        <label for="autostart">Démarrage automatique</label>
+                        <div class="setting-control">
+                            <label class="switch" title="Démarrer automatiquement la détection au lancement">
+                                <input type="checkbox" id="autostart" {% if settings['global'].get('autostart', false) %}checked{% endif %}>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
 

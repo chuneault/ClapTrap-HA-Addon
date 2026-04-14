@@ -55,6 +55,20 @@ export async function stopDetection() {
     }
 }
 
+export async function syncDetectionStatus() {
+    try {
+        const response = await fetch('/status');
+        const data = await response.json();
+        isDetecting = !!data.running;
+        updateDetectionUI(isDetecting);
+        return isDetecting;
+    } catch (error) {
+        console.error('Status sync error:', error);
+        updateDetectionUI(false);
+        return false;
+    }
+}
+
 function updateDetectionUI(isActive) {
     const startButton = document.getElementById('startButton');
     const stopButton = document.getElementById('stopButton');
