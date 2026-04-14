@@ -14,10 +14,25 @@ unsigned long lastDataTime = 0;
 unsigned long totalOutBytes = 0;
 
 // Mode test: privilégier un signal fidèle pour YAMNet plutôt qu'un son "amélioré"
+constexpr bool RAW_PASSTHROUGH_MODE = true;
 constexpr int32_t NOISE_GATE_THRESHOLD = 80;
 constexpr int32_t SOFTWARE_GAIN_NUM = 2;
 constexpr int32_t SOFTWARE_GAIN_DEN = 1;
 constexpr int32_t LIMITER_MAX = 30000;
+
+
+// Cablage I2S par defaut:
+// - ESP32 "classique": ancien montage INMP441 (BCK=26, WS=25, SD=33)
+// - ESP32-S3 Freenove: utiliser des GPIO exposes sur la carte (BCK=3, WS=14, SD=46)
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+constexpr int I2S_PIN_BCK = 3;
+constexpr int I2S_PIN_WS = 14;
+constexpr int I2S_PIN_DATA = 46;
+#else
+constexpr int I2S_PIN_BCK = 26;
+constexpr int I2S_PIN_WS = 25;
+constexpr int I2S_PIN_DATA = 33;
+#endif
 
 void setup() {
   Serial.begin(115200);
@@ -37,9 +52,11 @@ void setup() {
   cfg_i2s.channels = 2;       // 2 slots, on prend LEFT
   cfg_i2s.use_apll = false;
   cfg_i2s.auto_clear = true;
-  cfg_i2s.pin_bck = 26;
-  cfg_i2s.pin_ws = 25;
-  cfg_i2s.pin_data = 33;
+  cfg_i2s.pin_bck = I2S_PIN_BCK;
+  cfg_i2s.pin_ws = I2S_PIN_WS;
+  cfg_i2s.pin_data = I2S_PIN_DATA;
+
+  Serial.printf("I2S pins: BCK=%d WS=%d SD=%d\n", I2S_PIN_BCK, I2S_PIN_WS, I2S_PIN_DATA);
 
   Serial.println("Starting I2S...");
   bool i2sOk = i2sStream.begin(cfg_i2s);
@@ -80,24 +97,22 @@ void loop() {
     int32_t peak = 0;
     long long sumAbs = 0;
 
-    // LEFT channel seulement
+    // Le micro arrive sur le slot 0 avec L/R relie a GND sur le montage valide.
     for (int i = 0; i < samplesRead - 1; i += 2) {
+      int32_t s16 = inBuffer[i] >> 16;
 
-      int32_t left = inBuffer[i];
+      if (!RAW_PASSTHROUGH_MODE) {
+        // Noise gate leger pour couper le souffle sans ecraser les transitoires
+        if (abs(s16) < NOISE_GATE_THRESHOLD) {
+          s16 = 0;
+        } else {
+          s16 = (s16 * SOFTWARE_GAIN_NUM) / SOFTWARE_GAIN_DEN;
+        }
 
-      // Conversion 32 -> 16
-      int32_t s16 = left >> 16;
-
-      // Noise gate leger pour couper le souffle sans ecraser les transitoires
-      if (abs(s16) < NOISE_GATE_THRESHOLD) {
-        s16 = 0;
-      } else {
-        s16 = (s16 * SOFTWARE_GAIN_NUM) / SOFTWARE_GAIN_DEN;
+        // Limiteur plus haut pour eviter d'aplatir les claps
+        if (s16 > LIMITER_MAX) s16 = LIMITER_MAX;
+        if (s16 < -LIMITER_MAX) s16 = -LIMITER_MAX;
       }
-
-      // Limiteur plus haut pour eviter d'aplatir les claps
-      if (s16 > LIMITER_MAX) s16 = LIMITER_MAX;
-      if (s16 < -LIMITER_MAX) s16 = -LIMITER_MAX;
 
       outBuffer[outCount++] = (int16_t)s16;
 

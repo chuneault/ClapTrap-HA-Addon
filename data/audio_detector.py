@@ -38,7 +38,7 @@ class AudioDetector:
     self.non_clap_label_thresholds = {
         "Speech": 0.35,
         "Whistling": 0.22,
-        "Computer keyboard": 0.35,
+        "Computer keyboard": 0.20,
     }
     self.clap_labels = {"Hands", "Clapping", "Cap gun", "Finger snapping"}
     self.allowed_non_clap_labels = {
