@@ -183,6 +183,13 @@ class AudioDetector:
           ),
           default=0.0
       )
+      dominant_clap_label = None
+      dominant_clap_score = 0.0
+      for category in top_categories:
+        normalized_label = self._normalize_label(category.category_name)
+        if normalized_label in {"Hands", "Clapping"} and category.score > dominant_clap_score:
+          dominant_clap_label = normalized_label
+          dominant_clap_score = float(category.score)
 
       should_log_results = False
       if top_categories:
@@ -252,7 +259,9 @@ class AudioDetector:
             self.sources[source_id]['detection_callback']({
                 'timestamp': event_time,
                 'score': float(max(score_sum, direct_clap_score)),
-                'source_id': source_id
+                'source_id': source_id,
+                'label': dominant_clap_label,
+                'label_score': dominant_clap_score
             })
           except Exception as e:
             logging.error(

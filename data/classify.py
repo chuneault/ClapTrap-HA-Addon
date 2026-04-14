@@ -265,6 +265,9 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
                     "timestamp": detection_data["timestamp"],
                     "score": detection_data["score"]
                 }
+                if detection_data.get("label"):
+                    payload["label"] = detection_data["label"]
+                    payload["label_score"] = detection_data.get("label_score", 0.0)
                 response = requests.post(webhook_url, json=payload, timeout=2)
                 logging.info(
                     f"Webhook envoyé pour {source_name} - status={response.status_code}"
@@ -302,7 +305,9 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
                         socketio.emit('clap', {
                             'source_id': source_name,
                             'timestamp': detection_data['timestamp'],
-                            'score': detection_data['score']
+                            'score': detection_data['score'],
+                            'label': detection_data.get('label'),
+                            'label_score': detection_data.get('label_score', 0.0)
                         })
                     
                     # Utiliser le webhook_url passé au callback
