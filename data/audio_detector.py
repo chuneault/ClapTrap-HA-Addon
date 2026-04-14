@@ -36,6 +36,7 @@ class AudioDetector:
     self.direct_clap_label_threshold = 0.25
     self.slap_smack_weight = 0.60
     self.min_detection_interval_ms = 350
+    self.log_audio_stats = False
     self.clap_labels = {"Hands", "Clapping", "Finger snapping"}
     self.monitored_sound_events = self._build_monitored_sound_events(
         sound_events_config)
@@ -297,8 +298,8 @@ class AudioDetector:
       if audio_data.dtype != np.float32:
         audio_data = audio_data.astype(np.float32)
 
-      # Log des statistiques audio
-      if len(audio_data) > 0:
+      # Log des statistiques audio seulement en debug explicite
+      if self.log_audio_stats and len(audio_data) > 0:
         now_ms = int(time.monotonic() * 1000)
         last_log_ms = self.last_stats_log_time.get(source_id, 0)
         should_log_stats = (
