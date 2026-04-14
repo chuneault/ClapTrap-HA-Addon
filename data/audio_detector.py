@@ -31,8 +31,8 @@ class AudioDetector:
     self.score_threshold = 0.3
     self.label_display_threshold = 0.5
     self.result_log_threshold = 0.55
-    self.finger_snapping_penalty = 0.35
-    self.direct_clap_label_threshold = 0.45
+    self.finger_snapping_penalty = 0.20
+    self.direct_clap_label_threshold = 0.35
     self.clap_labels = {"Hands", "Clapping", "Cap gun", "Finger snapping"}
     self.allowed_non_clap_labels = {
         "Speech",
@@ -121,6 +121,11 @@ class AudioDetector:
           category.score
           for category in classification.categories
           if category.category_name in self.clap_labels - {"Finger snapping"}
+      )
+      score_sum += sum(
+          category.score * 0.25
+          for category in classification.categories
+          if category.category_name == "Slap, smack"
       )
       finger_snapping_score = sum(
           category.score
