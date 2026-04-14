@@ -35,6 +35,11 @@ class AudioDetector:
     self.direct_clap_label_threshold = 0.25
     self.slap_smack_weight = 0.60
     self.min_detection_interval_ms = 350
+    self.non_clap_label_thresholds = {
+        "Speech": 0.35,
+        "Whistling": 0.22,
+        "Computer keyboard": 0.35,
+    }
     self.clap_labels = {"Hands", "Clapping", "Cap gun", "Finger snapping"}
     self.allowed_non_clap_labels = {
         "Speech",
@@ -152,7 +157,10 @@ class AudioDetector:
             for category in top_categories
         )
         has_allowed_non_clap = any(
-            category.category_name in self.allowed_non_clap_labels and category.score > 0.35
+            category.category_name in self.allowed_non_clap_labels
+            and category.score > self.non_clap_label_thresholds.get(
+                category.category_name, 0.35
+            )
             for category in top_categories
         )
         should_log_results = (
@@ -182,7 +190,9 @@ class AudioDetector:
               )
               or (
                   label.category_name in self.allowed_non_clap_labels
-                  and label.score > 0.35
+                  and label.score > self.non_clap_label_thresholds.get(
+                      label.category_name, 0.35
+                  )
               )
           )
       ]

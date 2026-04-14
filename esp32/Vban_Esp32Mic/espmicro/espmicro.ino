@@ -14,10 +14,10 @@ unsigned long lastDataTime = 0;
 unsigned long totalOutBytes = 0;
 
 // Mode test: privilégier un signal fidèle pour YAMNet plutôt qu'un son "amélioré"
-constexpr int32_t NOISE_GATE_THRESHOLD = 120;
-constexpr int32_t SOFTWARE_GAIN_NUM = 1;
+constexpr int32_t NOISE_GATE_THRESHOLD = 80;
+constexpr int32_t SOFTWARE_GAIN_NUM = 2;
 constexpr int32_t SOFTWARE_GAIN_DEN = 1;
-constexpr int32_t LIMITER_MAX = 28000;
+constexpr int32_t LIMITER_MAX = 30000;
 
 void setup() {
   Serial.begin(115200);
