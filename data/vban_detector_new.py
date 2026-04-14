@@ -19,7 +19,8 @@ class VBANDetector:
         self.audio_callback = None
         self.source_callback = None
         self.target_sample_rate = 16000  # Taux d'échantillonnage cible
-        self.callback_chunk_size = 8000  # 500 ms pour redonner du contexte a YAMNet
+        self.callback_chunk_size = int(self.target_sample_rate * 0.2)
+        self.callback_chunk_duration = self.callback_chunk_size / self.target_sample_rate
         
         # Buffer circulaire avec une capacité de 2 secondes au taux d'échantillonnage cible
         self.buffer = collections.deque(maxlen=self.target_sample_rate * 2)
@@ -31,6 +32,26 @@ class VBANDetector:
         self._settings_cache = None
         self._last_settings_load = 0
         self._settings_cache_duration = 5  # Durée du cache en secondes
+
+    def _update_runtime_settings(self, settings):
+        """Applique les paramètres runtime pertinents sans redémarrer l'écoute."""
+        global_settings = settings.get('global', {}) if isinstance(settings, dict) else {}
+        try:
+            chunk_duration = float(global_settings.get('chunk_duration', self.callback_chunk_duration))
+        except (TypeError, ValueError):
+            chunk_duration = self.callback_chunk_duration
+
+        # Garder une fenêtre courte pour réduire la latence tout en laissant
+        # assez de contexte au classifieur.
+        chunk_duration = max(0.1, min(chunk_duration, 0.5))
+        callback_chunk_size = max(1600, int(self.target_sample_rate * chunk_duration))
+        if callback_chunk_size != self.callback_chunk_size:
+            self.callback_chunk_size = callback_chunk_size
+            self.callback_chunk_duration = chunk_duration
+            logging.info(
+                f"Chunk VBAN mis à jour: {self.callback_chunk_size} échantillons "
+                f"({self.callback_chunk_duration:.3f}s)"
+            )
         
     def start_listening(self):
         """Démarre l'écoute des flux VBAN"""
@@ -70,6 +91,7 @@ class VBANDetector:
                 if source:
                     # Vérifier si la source est activée dans settings.json
                     settings = self._load_settings()
+                    self._update_runtime_settings(settings)
                     if settings and 'saved_vban_sources' in settings:
                         source_enabled = False
                         for saved_source in settings['saved_vban_sources']:

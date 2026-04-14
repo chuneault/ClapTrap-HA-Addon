@@ -216,8 +216,16 @@ def start_detection(
 def run_detection(model, max_results, score_threshold, overlapping_factor, socketio, webhook_url, delay, audio_source, rtsp_url):
     """Fonction qui exécute la détection dans un thread séparé"""
     try:
+        runtime_settings = reload_settings() or {}
+        runtime_global_settings = runtime_settings.get('global', {})
+        buffer_duration = float(runtime_global_settings.get('buffer_duration', BUFFER_DURATION))
+
         # Initialiser le détecteur audio
-        detector = AudioDetector(model, sample_rate=16000, buffer_duration=1.0)
+        detector = AudioDetector(
+            model,
+            sample_rate=16000,
+            buffer_duration=buffer_duration
+        )
         detector.initialize(
             max_results=max_results,
             score_threshold=score_threshold

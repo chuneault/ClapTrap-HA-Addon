@@ -32,7 +32,9 @@ class AudioDetector:
     self.label_display_threshold = 0.5
     self.result_log_threshold = 0.55
     self.finger_snapping_penalty = 0.20
-    self.direct_clap_label_threshold = 0.35
+    self.direct_clap_label_threshold = 0.25
+    self.slap_smack_weight = 0.60
+    self.min_detection_interval_ms = 350
     self.clap_labels = {"Hands", "Clapping", "Cap gun", "Finger snapping"}
     self.allowed_non_clap_labels = {
         "Speech",
@@ -123,7 +125,7 @@ class AudioDetector:
           if category.category_name in self.clap_labels - {"Finger snapping"}
       )
       score_sum += sum(
-          category.score * 0.25
+          category.score * self.slap_smack_weight
           for category in classification.categories
           if category.category_name == "Slap, smack"
       )
@@ -202,7 +204,9 @@ class AudioDetector:
           score_sum > self.score_threshold
           or direct_clap_score > self.direct_clap_label_threshold
       )
-      if clap_detected and (timestamp - self.last_detection_time.get(source_id, 0)) > 1000:
+      if clap_detected and (
+          timestamp - self.last_detection_time.get(source_id, 0)
+      ) > self.min_detection_interval_ms:
         if self.sources[source_id]['detection_callback']:
           try:
             self.sources[source_id]['detection_callback']({
