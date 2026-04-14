@@ -20,6 +20,7 @@ function syncWithDOM() {
     const chunkDuration = document.getElementById('chunk_duration');
     const bufferDuration = document.getElementById('buffer_duration');
     const autostart = document.getElementById('autostart');
+    const debugSoundEvents = document.getElementById('debug_sound_events');
     const micEnabled = document.getElementById('webhook-mic-enabled');
     const micUrl = document.getElementById('webhook-mic-url');
     const micSource = document.getElementById('micro_source');
@@ -38,13 +39,14 @@ function syncWithDOM() {
             delay: delay ? delay.value : currentSettings.global.delay,
             chunk_duration: chunkDuration ? chunkDuration.value : currentSettings.global.chunk_duration,
             buffer_duration: bufferDuration ? bufferDuration.value : currentSettings.global.buffer_duration,
-            autostart: autostart ? autostart.checked : !!currentSettings.global.autostart
+            autostart: autostart ? autostart.checked : !!currentSettings.global.autostart,
+            debug_sound_events: debugSoundEvents ? debugSoundEvents.checked : !!currentSettings.global.debug_sound_events
         },
         sound_events: Array.from(soundEventElements).map(element => ({
-            label: element.dataset.label,
+            label: element.querySelector('.sound-event-label')?.value?.trim() || '',
             enabled: element.querySelector('.sound-event-enabled')?.checked || false,
             min_score: element.querySelector('.sound-event-threshold')?.value || '0.2'
-        })),
+        })).filter(event => event.label),
         microphone: {
             ...currentSettings.microphone,
             enabled: micEnabled ? micEnabled.checked : false,

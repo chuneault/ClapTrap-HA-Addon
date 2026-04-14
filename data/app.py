@@ -54,6 +54,8 @@ DEFAULT_SOUND_EVENTS = [
     {"label": "Speech", "enabled": True, "min_score": "0.35"},
     {"label": "Whistling", "enabled": True, "min_score": "0.22"},
     {"label": "Computer keyboard", "enabled": True, "min_score": "0.20"},
+    {"label": "Typewriter", "enabled": False, "min_score": "0.12"},
+    {"label": "Typing", "enabled": False, "min_score": "0.12"},
     {"label": "Hands", "enabled": False, "min_score": "0.50"},
     {"label": "Clapping", "enabled": False, "min_score": "0.25"},
 ]
@@ -149,7 +151,8 @@ def save_settings(new_settings):
                 "delay": "1.0",
                 "chunk_duration": "0.2",
                 "buffer_duration": "1.0",
-                "autostart": False
+                "autostart": False,
+                "debug_sound_events": False
             },
             "sound_events": DEFAULT_SOUND_EVENTS,
             "microphone": {
@@ -218,7 +221,8 @@ def load_settings():
             "delay": "1.0",
             "chunk_duration": "0.2",
             "buffer_duration": "1.0",
-            "autostart": False
+            "autostart": False,
+            "debug_sound_events": False
         },
         "sound_events": DEFAULT_SOUND_EVENTS,
         "microphone": {

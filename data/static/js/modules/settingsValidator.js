@@ -1,13 +1,14 @@
 // Schéma de validation des paramètres
 const settingsSchema = {
     global: {
-        required: ['threshold', 'delay', 'chunk_duration', 'buffer_duration', 'autostart'],
+        required: ['threshold', 'delay', 'chunk_duration', 'buffer_duration', 'autostart', 'debug_sound_events'],
         defaults: {
             threshold: '0.5',
             delay: '1.0',
             chunk_duration: '0.2',
             buffer_duration: '1.0',
-            autostart: false
+            autostart: false,
+            debug_sound_events: false
         }
     },
     sound_events: {
@@ -120,6 +121,7 @@ export function compareWithDOMValues(settings) {
     const chunkDuration = document.getElementById('chunk_duration');
     const bufferDuration = document.getElementById('buffer_duration');
     const autostart = document.getElementById('autostart');
+    const debugSoundEvents = document.getElementById('debug_sound_events');
     if (threshold && settings.global.threshold !== threshold.value) {
         differences.push(`Seuil: ${settings.global.threshold} ≠ ${threshold.value}`);
     }
@@ -134,6 +136,9 @@ export function compareWithDOMValues(settings) {
     }
     if (autostart && settings.global.autostart !== autostart.checked) {
         differences.push(`Auto-start: ${settings.global.autostart} ≠ ${autostart.checked}`);
+    }
+    if (debugSoundEvents && settings.global.debug_sound_events !== debugSoundEvents.checked) {
+        differences.push(`Debug sound events: ${settings.global.debug_sound_events} ≠ ${debugSoundEvents.checked}`);
     }
 
     // Vérifier les paramètres du microphone
@@ -154,7 +159,7 @@ export function compareWithDOMValues(settings) {
 
     if (soundEventElements.length > 0) {
         soundEventElements.forEach(element => {
-            const label = element.dataset.label;
+            const label = element.querySelector('.sound-event-label')?.value?.trim();
             const enabledInput = element.querySelector('.sound-event-enabled');
             const scoreInput = element.querySelector('.sound-event-threshold');
             const currentEvent = (settings.sound_events || []).find(event => event.label === label);
@@ -183,6 +188,7 @@ export function validateDOM() {
         'chunk_duration',
         'buffer_duration',
         'autostart',
+        'debug_sound_events',
         'soundEventsList',
         'webhook-mic-enabled',
         'webhook-mic-url',

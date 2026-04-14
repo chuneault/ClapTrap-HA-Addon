@@ -11,7 +11,7 @@ import logging
 
 
 class AudioDetector:
-  def __init__(self, model_path, sample_rate=16000, buffer_duration=1.0, chunk_duration=0.2, sound_events_config=None):
+  def __init__(self, model_path, sample_rate=16000, buffer_duration=1.0, chunk_duration=0.2, sound_events_config=None, debug_sound_events=False):
     self.model_path = model_path
     self.sample_rate = sample_rate
     self.buffer_size = int(buffer_duration * sample_rate)
@@ -37,20 +37,18 @@ class AudioDetector:
     self.slap_smack_weight = 0.60
     self.min_detection_interval_ms = 350
     self.log_audio_stats = False
+    self.debug_sound_events = debug_sound_events
     self.clap_labels = {"Hands", "Clapping", "Finger snapping"}
     self.monitored_sound_events = self._build_monitored_sound_events(
         sound_events_config)
-
-  def _normalize_label(self, label_name):
-    if label_name == "Typewriter":
-      return "Computer keyboard"
-    return label_name
 
   def _build_monitored_sound_events(self, sound_events_config):
     default_events = {
         "Speech": 0.35,
         "Whistling": 0.22,
         "Computer keyboard": 0.20,
+        "Typewriter": 0.12,
+        "Typing": 0.12,
         "Clapping": 0.25,
     }
 
@@ -62,7 +60,7 @@ class AudioDetector:
       if not isinstance(event, dict):
         continue
 
-      label = self._normalize_label(event.get("label", ""))
+      label = event.get("label", "")
       if not label or not event.get("enabled", False):
         continue
 
@@ -76,8 +74,7 @@ class AudioDetector:
     return monitored_events
 
   def _should_emit_label(self, label_name, score):
-    normalized_label = self._normalize_label(label_name)
-    threshold = self.monitored_sound_events.get(normalized_label)
+    threshold = self.monitored_sound_events.get(label_name)
     if threshold is None:
       return False
     return score >= threshold
@@ -187,9 +184,8 @@ class AudioDetector:
       dominant_clap_label = None
       dominant_clap_score = 0.0
       for category in top_categories:
-        normalized_label = self._normalize_label(category.category_name)
-        if normalized_label in {"Hands", "Clapping"} and category.score > dominant_clap_score:
-          dominant_clap_label = normalized_label
+        if category.category_name in {"Hands", "Clapping"} and category.score > dominant_clap_score:
+          dominant_clap_label = category.category_name
           dominant_clap_score = float(category.score)
 
       should_log_results = False
@@ -219,21 +215,25 @@ class AudioDetector:
         logging.debug(
             f"Score de clap calculé pour source {source_id}: {score_sum} (direct={direct_clap_score}, snap={finger_snapping_score})")
 
-      labels_map = {}
-      for label in top_categories:
-        normalized_label = self._normalize_label(label.category_name)
+      if self.debug_sound_events:
+        labels_data = [
+            {"label": label.category_name, "score": float(label.score)}
+            for label in top_categories
+        ]
+      else:
+        labels_map = {}
+        for label in top_categories:
+          if (
+              label.category_name in self.clap_labels
+              and label.score > self.label_display_threshold
+          ) or self._should_emit_label(label.category_name, label.score):
+            previous_score = labels_map.get(label.category_name, 0.0)
+            labels_map[label.category_name] = max(previous_score, float(label.score))
 
-        if (
-            label.category_name in self.clap_labels
-            and label.score > self.label_display_threshold
-        ) or self._should_emit_label(label.category_name, label.score):
-          previous_score = labels_map.get(normalized_label, 0.0)
-          labels_map[normalized_label] = max(previous_score, float(label.score))
-
-      labels_data = [
-          {"label": label_name, "score": score}
-          for label_name, score in labels_map.items()
-      ]
+        labels_data = [
+            {"label": label_name, "score": score}
+            for label_name, score in labels_map.items()
+        ]
 
       if labels_data or score_sum > 0.1 or direct_clap_score > 0.1:
         logging.debug(f"Labels détectés pour source {source_id}: {labels_data}")

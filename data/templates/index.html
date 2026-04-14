@@ -85,23 +85,40 @@
                             </label>
                         </div>
                     </div>
+                    <div class="setting-item">
+                        <label for="debug_sound_events">Debug événements sonores</label>
+                        <div class="setting-control">
+                            <label class="switch" title="Afficher les top labels YAMNet dans l'UI même s'ils ne sont pas configurés">
+                                <input type="checkbox" id="debug_sound_events" {% if settings['global'].get('debug_sound_events', false) %}checked{% endif %}>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div class="config-card">
-                <h3>Événements sonores</h3>
+                <div class="d-flex justify-content-between align-items-center">
+                    <h3>Événements sonores</h3>
+                    <button type="button" id="addSoundEventButton" class="btn btn-sm btn-primary">Ajouter</button>
+                </div>
                 <p class="text-muted">Choisis les sons à surveiller et le score minimum requis avant affichage/envoi du label.</p>
                 <div id="soundEventsList" class="list-group">
                     {% for event in settings.sound_events %}
-                    <div class="list-group-item sound-event-item" data-label="{{ event.label }}">
+                    <div class="list-group-item sound-event-item">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <strong>{{ event.label }}</strong>
+                                <input type="text" class="webhook-input sound-event-label" value="{{ event.label }}" placeholder="Nom du label YAMNet">
                             </div>
-                            <label class="switch" title="Activer/Désactiver l'événement">
-                                <input type="checkbox" class="sound-event-enabled" {% if event.enabled %}checked{% endif %}>
-                                <span class="slider round"></span>
-                            </label>
+                            <div class="source-controls">
+                                <label class="switch" title="Activer/Désactiver l'événement">
+                                    <input type="checkbox" class="sound-event-enabled" {% if event.enabled %}checked{% endif %}>
+                                    <span class="slider round"></span>
+                                </label>
+                                <button type="button" class="btn btn-light btn-sm delete-sound-event-btn" title="Supprimer l'événement">
+                                    <span class="icon" style="color: #dc3545;">❌</span>
+                                </button>
+                            </div>
                         </div>
                         <div class="setting-control mt-2">
                             <label for="sound-threshold-{{ loop.index0 }}">Score minimum</label>
