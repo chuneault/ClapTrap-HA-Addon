@@ -54,8 +54,35 @@ DEFAULT_SOUND_EVENTS = [
     {"label": "Speech", "enabled": True, "min_score": "0.35"},
     {"label": "Whistling", "enabled": True, "min_score": "0.22"},
     {"label": "Computer keyboard", "enabled": True, "min_score": "0.20"},
+    {"label": "Hands", "enabled": False, "min_score": "0.50"},
     {"label": "Clapping", "enabled": False, "min_score": "0.25"},
 ]
+
+def merge_sound_events(saved_events):
+    merged_events = []
+    saved_by_label = {}
+
+    if isinstance(saved_events, list):
+        for event in saved_events:
+            if isinstance(event, dict) and event.get("label"):
+                saved_by_label[event["label"]] = event
+
+    for default_event in DEFAULT_SOUND_EVENTS:
+        saved_event = saved_by_label.pop(default_event["label"], {})
+        merged_events.append({
+            "label": default_event["label"],
+            "enabled": saved_event.get("enabled", default_event["enabled"]),
+            "min_score": str(saved_event.get("min_score", default_event["min_score"]))
+        })
+
+    for label, event in saved_by_label.items():
+        merged_events.append({
+            "label": label,
+            "enabled": event.get("enabled", False),
+            "min_score": str(event.get("min_score", "0.2"))
+        })
+
+    return merged_events
 
 # Initialiser le détecteur VBAN
 init_vban()
@@ -154,6 +181,9 @@ def save_settings(new_settings):
 
         # Mettre à jour avec les nouveaux paramètres
         current_settings.update(new_settings)
+        current_settings['sound_events'] = merge_sound_events(
+            current_settings.get('sound_events', [])
+        )
 
         # Sauvegarder dans un fichier temporaire d'abord
         with open(SETTINGS_TEMP, 'w') as f:
@@ -224,6 +254,9 @@ def load_settings():
                 return merged
                 
             merged_settings = deep_merge(default_settings, settings)
+            merged_settings['sound_events'] = merge_sound_events(
+                merged_settings.get('sound_events', [])
+            )
             return merged_settings
             
     except Exception as e:
