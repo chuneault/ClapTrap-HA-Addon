@@ -11,10 +11,11 @@ import logging
 
 
 class AudioDetector:
-  def __init__(self, model_path, sample_rate=16000, buffer_duration=1.0, sound_events_config=None):
+  def __init__(self, model_path, sample_rate=16000, buffer_duration=1.0, chunk_duration=0.2, sound_events_config=None):
     self.model_path = model_path
     self.sample_rate = sample_rate
     self.buffer_size = int(buffer_duration * sample_rate)
+    self.chunk_size = max(1600, int(chunk_duration * sample_rate))
     self.sources = {}  # Dict pour stocker les buffers et callbacks par source
     self.source_ids = {}  # Dict pour mapper les noms de source aux IDs numériques
     self.next_source_id = 1  # Commencer à 1 pour éviter les problèmes avec 0
@@ -306,14 +307,12 @@ class AudioDetector:
 
       # Traiter avec le classificateur
       if self.running and self.classifier and self.start_time_ms is not None:
-        block_size = 1600
+        block_size = self.chunk_size
         buffer_array = np.array(list(self.sources[source_id]['buffer']))
 
-        blocks_processed = 0
         while len(buffer_array) >= block_size:
           block = buffer_array[:block_size]
           buffer_array = buffer_array[block_size:]
-          blocks_processed += 1
 
           # Le timestamp doit rester cohérent avec les échantillons réellement
           # envoyés au classificateur en mode stream.
@@ -328,7 +327,7 @@ class AudioDetector:
           block_std = np.std(block)
           if block_max > 0.1:
             logging.debug(
-                f"Classification d'un bloc audio (source {source_id}) - amplitude max: {block_max:.4f}")
+                f"Envoi au classificateur - source: {source_id}, amplitude max: {block_max:.4f}, std: {block_std:.4f}, chunk: {block_size}")
 
           audio_data_container = containers.AudioData.create_from_array(
               block,
@@ -338,20 +337,12 @@ class AudioDetector:
           # Définir la source actuelle pour le callback
           self.current_source_id = source_id
 
-          # Log avant la classification
-          if block_max > 0.1:
-            logging.debug(
-                f"Envoi au classificateur - source: {source_id}, timestamp: {next_timestamp}")
-
           # Classifier le bloc
           try:
             self.classifier.classify_async(
                 audio_data_container, next_timestamp)
           except Exception as e:
             logging.error(f"Erreur lors de la classification: {str(e)}")
-
-        if blocks_processed > 0:
-          logging.debug(f"Blocs traités pour {source_id}: {blocks_processed}")
 
         # Mettre à jour le buffer avec les données restantes
         self.sources[source_id]['buffer'].clear()

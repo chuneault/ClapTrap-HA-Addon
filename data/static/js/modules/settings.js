@@ -17,6 +17,8 @@ function syncWithDOM() {
     // Récupérer les éléments de l'interface
     const threshold = document.getElementById('threshold');
     const delay = document.getElementById('delay');
+    const chunkDuration = document.getElementById('chunk_duration');
+    const bufferDuration = document.getElementById('buffer_duration');
     const autostart = document.getElementById('autostart');
     const micEnabled = document.getElementById('webhook-mic-enabled');
     const micUrl = document.getElementById('webhook-mic-url');
@@ -34,6 +36,8 @@ function syncWithDOM() {
             ...currentSettings.global,
             threshold: threshold ? threshold.value : currentSettings.global.threshold,
             delay: delay ? delay.value : currentSettings.global.delay,
+            chunk_duration: chunkDuration ? chunkDuration.value : currentSettings.global.chunk_duration,
+            buffer_duration: bufferDuration ? bufferDuration.value : currentSettings.global.buffer_duration,
             autostart: autostart ? autostart.checked : !!currentSettings.global.autostart
         },
         sound_events: Array.from(soundEventElements).map(element => ({

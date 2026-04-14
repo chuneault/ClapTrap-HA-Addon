@@ -120,6 +120,8 @@ def save_settings(new_settings):
             "global": {
                 "threshold": "0.5",
                 "delay": "1.0",
+                "chunk_duration": "0.2",
+                "buffer_duration": "1.0",
                 "autostart": False
             },
             "sound_events": DEFAULT_SOUND_EVENTS,
@@ -184,6 +186,8 @@ def load_settings():
         "global": {
             "threshold": "0.5",
             "delay": "1.0",
+            "chunk_duration": "0.2",
+            "buffer_duration": "1.0",
             "autostart": False
         },
         "sound_events": DEFAULT_SOUND_EVENTS,

@@ -1,10 +1,12 @@
 // Schéma de validation des paramètres
 const settingsSchema = {
     global: {
-        required: ['threshold', 'delay', 'autostart'],
+        required: ['threshold', 'delay', 'chunk_duration', 'buffer_duration', 'autostart'],
         defaults: {
             threshold: '0.5',
             delay: '1.0',
+            chunk_duration: '0.2',
+            buffer_duration: '1.0',
             autostart: false
         }
     },
@@ -115,12 +117,20 @@ export function compareWithDOMValues(settings) {
     // Vérifier les valeurs globales
     const threshold = document.getElementById('threshold');
     const delay = document.getElementById('delay');
+    const chunkDuration = document.getElementById('chunk_duration');
+    const bufferDuration = document.getElementById('buffer_duration');
     const autostart = document.getElementById('autostart');
     if (threshold && settings.global.threshold !== threshold.value) {
         differences.push(`Seuil: ${settings.global.threshold} ≠ ${threshold.value}`);
     }
     if (delay && settings.global.delay !== delay.value) {
         differences.push(`Délai: ${settings.global.delay} ≠ ${delay.value}`);
+    }
+    if (chunkDuration && settings.global.chunk_duration !== chunkDuration.value) {
+        differences.push(`Chunk duration: ${settings.global.chunk_duration} ≠ ${chunkDuration.value}`);
+    }
+    if (bufferDuration && settings.global.buffer_duration !== bufferDuration.value) {
+        differences.push(`Buffer duration: ${settings.global.buffer_duration} ≠ ${bufferDuration.value}`);
     }
     if (autostart && settings.global.autostart !== autostart.checked) {
         differences.push(`Auto-start: ${settings.global.autostart} ≠ ${autostart.checked}`);
@@ -170,6 +180,8 @@ export function validateDOM() {
     const requiredElements = [
         'threshold',
         'delay',
+        'chunk_duration',
+        'buffer_duration',
         'autostart',
         'soundEventsList',
         'webhook-mic-enabled',

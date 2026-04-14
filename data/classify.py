@@ -239,6 +239,7 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
     try:
         runtime_settings = reload_settings() or {}
         runtime_global_settings = runtime_settings.get('global', {})
+        chunk_duration = float(runtime_global_settings.get('chunk_duration', CHUNK_DURATION))
         buffer_duration = float(runtime_global_settings.get('buffer_duration', BUFFER_DURATION))
 
         # Initialiser le détecteur audio
@@ -246,6 +247,7 @@ def run_detection(model, max_results, score_threshold, overlapping_factor, socke
             model,
             sample_rate=16000,
             buffer_duration=buffer_duration,
+            chunk_duration=chunk_duration,
             sound_events_config=runtime_settings.get('sound_events', [])
         )
         detector.initialize(
