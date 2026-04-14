@@ -39,12 +39,14 @@ class AudioDetector:
         "Speech": 0.35,
         "Whistling": 0.22,
         "Computer keyboard": 0.20,
+        "Typewriter": 0.12,
     }
-    self.clap_labels = {"Hands", "Clapping", "Cap gun", "Finger snapping"}
+    self.clap_labels = {"Hands", "Clapping", "Finger snapping"}
     self.allowed_non_clap_labels = {
         "Speech",
         "Whistling",
-        "Computer keyboard"
+        "Computer keyboard",
+        "Typewriter"
     }
 
   def initialize(self, max_results=5, score_threshold=0.3):
